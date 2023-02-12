@@ -10,6 +10,7 @@
   become: true
   vars:
     ipadrhost: 10.0.0.101
+    ansible_python_interpreter: /usr/bin/python3
 
 
   # This section is used for define all tasks, which we want to do.
@@ -37,8 +38,8 @@
 
     - name: update
       apt:
-      upgrade=dist
-      force_apt_get=yes
+      upgrade: dist
+      force_apt_get: yes
 
     - name: Add rsyslog conf
       lineinfile:
@@ -57,5 +58,44 @@
     - name: Restart rsyslog
       ansible.builtin.service:
        name: rsyslog
+       state: restarted
+       enabled: true
+
+    - name: Install Python
+      apt:
+        name: python3
+        state: latest
+        update_cache: true
+
+    - name: Install Munin-Node
+      apt:
+        name: munin-node
+        state: latest
+        update_cache: true
+
+    - name: Allow monitor IP
+      lineinfile:
+        dest: /etc/munin/munin-node.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+       - { regexp: 'allow ^::1$', line: 'allow ^10\.0\.0\.101$' }
+
+    - name: Add munin docker plugins
+      ansible.builtin.file:
+       src: "{{ item.src }}"
+       line: "{{ item.dest }}"
+      with_items:
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_containers' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_cpu' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_images' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_memory' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_network' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_status' }
+       - { src: '/usr/share/munin/plugins/docker_', dest: '/etc/munin/plugins/docker_volumes' }
+    
+    - name: restart munin
+      ansible.builtin.service:
+       name: munin-node
        state: restarted
        enabled: true
